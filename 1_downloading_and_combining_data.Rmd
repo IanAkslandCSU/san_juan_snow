@@ -148,6 +148,16 @@ Here I want you to use the `rvest` package to get the URLs for
 the `SASP forcing` and `SBSP_forcing` meteoroligical datasets.
 
 ```{r}
+site_url <- 'https://snowstudies.org/archived-data/'
+
+#Read the web url
+webpage <- read_html(site_url)
+
+#Extract only weblinks and then the URLs!
+links <- webpage %>%
+  html_nodes('a') %>%
+  .[grepl('forcing',.)] %>%
+  html_attr('href')
 
 ```
 
@@ -158,6 +168,18 @@ commands to download the data ands save it in your data folder.
 You can use a for loop or a map function. 
 
 ```{r}
+splits <- str_split_fixed(links,'/',4)
+
+#Keep only the 8th column
+dataset <- splits[,4] 
+
+#generate a file list for where the data goes
+#file_names <- paste0('data/',dataset)
+
+file_names
+for(i in 1:length(file_names)){
+   download.file(links[i],destfile=file_names[i])
+ }
 
 ```
 
@@ -167,7 +189,18 @@ Write a custom function to read in the data and append a site
 column to the data. 
 
 ```{r}
+our_snow_reader <- function(file){
+  name = str_split_fixed(file,'-',4)[,3] 
+    #gsub('-text06.txt'|'-text07.txt','',.)
+  df <- read_csv(file) %>%
+    select(Year,DOY,Sno_Height_M) %>%
+    mutate(site = name)
+}
 
+
+snow_data_full <- map_dfr(snow_files,our_snow_reader)
+
+summary(snow_data_full)
 ```
 
 
