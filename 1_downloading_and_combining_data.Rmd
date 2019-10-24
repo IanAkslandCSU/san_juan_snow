@@ -10,7 +10,7 @@ library(rvest)
 library(tidyverse)
 library(lubridate)
 library(readxl)
-
+library(pdftools)
 ```
 
 
@@ -154,7 +154,7 @@ site_url <- 'https://snowstudies.org/archived-data/'
 webpage <- read_html(site_url)
 
 #Extract only weblinks and then the URLs!
-links <- webpage %>%
+links_forcing <- webpage %>%
   html_nodes('a') %>%
   .[grepl('forcing',.)] %>%
   html_attr('href')
@@ -168,18 +168,15 @@ commands to download the data ands save it in your data folder.
 You can use a for loop or a map function. 
 
 ```{r}
-splits <- str_split_fixed(links,'/',4)
+splits_forcing <- str_split_fixed(links_forcing,'/',4)
 
 #Keep only the 8th column
-dataset <- splits[,4] 
+dataset_forcing <- splits_forcing[,4] 
 
 #generate a file list for where the data goes
 #file_names <- paste0('data/',dataset)
 
-file_names
-for(i in 1:length(file_names)){
-   download.file(links[i],destfile=file_names[i])
- }
+map2(links_forcing,dataset_forcing,download.file)
 
 ```
 
@@ -189,25 +186,31 @@ Write a custom function to read in the data and append a site
 column to the data. 
 
 ```{r}
-our_snow_reader <- function(file){
+headers <- pdf_text('https://snowstudies.org/data/Serially-Complete-Metadata-text08.pdf') %>%
+  readr::read_lines(.) %>%
+  trimws(.) %>%
+  str_split_fixed(.,'\\.',2) %>%
+  .[,2] %>%
+  .[1:26]
+
+headers1 <- c(headers,"site")
+
+ournew_snow_reader <- function(file){
   name = str_split_fixed(file,'-',4)[,3] 
     #gsub('-text06.txt'|'-text07.txt','',.)
-  df <- read_csv(file) %>%
-    select(Year,DOY,Sno_Height_M) %>%
+  df <- read_table(file, col_names = FALSE) %>%
     mutate(site = name)
 }
 
-
-snow_data_full <- map_dfr(snow_files,our_snow_reader)
-
-summary(snow_data_full)
 ```
 
 
 Use the `map` function to read in both meteorological files.
 
 ```{r}
-
+data_force <- map_dfr(dataset_forcing,ournew_snow_reader)
+data_force_colnames <- setNames(data_force,headers1)
+str(snow_data_full)
 ```
 
 
